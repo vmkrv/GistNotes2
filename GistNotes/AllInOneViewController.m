@@ -16,6 +16,7 @@
 @interface AllInOneViewController () <UITabBarDelegate,GistsModelDelegate>
 {
     GistsModel *gistModel;
+    UIRefreshControl *refreshControl;
 }
 @property (strong, nonatomic) IBOutlet UITabBar *tabBar;
 @property (strong, nonatomic) IBOutlet UITableView *tableView;
@@ -36,8 +37,14 @@
     gistModel = [[GistsModel alloc] init];
     gistModel.delegate = self;
     [gistModel retrieveGists];
-    [gistModel downloadGists];
     [tabBar setSelectedItem:tabBar.items[0]];
+    
+    // Initialize the refresh control.
+    refreshControl = [[UIRefreshControl alloc] init];
+    refreshControl.backgroundColor = [UIColor purpleColor];
+    refreshControl.tintColor = [UIColor whiteColor];
+    [refreshControl addTarget:self action:@selector(getData) forControlEvents:UIControlEventValueChanged];
+    [self.tableView addSubview:refreshControl];
 }
 
 - (void)viewDidAppear:(BOOL)animated
@@ -56,11 +63,42 @@
     [super didReceiveMemoryWarning];
 }
 
+#pragma mark - Private methods
+
+- (void)getData
+{
+    if (tabBar.selectedItem.tag == 0) {
+        [gistModel downloadGists];
+    } else {
+        [gistModel retrieveNotes];
+    }
+}
+
+- (void)reloadData
+{
+    // Reload table data
+    [self.tableView reloadData];
+    
+    // End the refreshing
+    if (refreshControl) {
+        
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"MMM d, h:mm a"];
+        NSString *title = [NSString stringWithFormat:@"Last update: %@", [formatter stringFromDate:[NSDate date]]];
+        NSDictionary *attrsDictionary = [NSDictionary dictionaryWithObject:[UIColor whiteColor]
+                                                                    forKey:NSForegroundColorAttributeName];
+        NSAttributedString *attributedTitle = [[NSAttributedString alloc] initWithString:title attributes:attrsDictionary];
+        refreshControl.attributedTitle = attributedTitle;
+        
+        [refreshControl endRefreshing];
+    }
+}
+
 #pragma mark - GistsModelDelegate
 
 - (void)dataRetrieveSucceed
 {
-    [self.tableView reloadData];
+    [self reloadData];
 }
 
 - (void)dataRetrieveFailed
